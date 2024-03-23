@@ -1,0 +1,23 @@
+{
+  "name": "launchpad",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "watch": "node --watch dist/index.js",
+    "ts-watch": "tsc -w",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "easymidi": "^3.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.3"
+  }
+}
