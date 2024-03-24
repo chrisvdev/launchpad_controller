@@ -10,8 +10,8 @@ import type {
   Select,
   Sysex,
 } from "easymidi";
-import type Panel, { Button } from "./panel.ts";
-import { Pixel } from "./launchpad.ts";
+import type Panel, { Button } from "@launchpad/panel.ts";
+import { Pixel } from "@launchpad/launchpad.ts";
 export type SysexData = number[];
 export type Coordinate = {
   x: AxisCoordinate;
@@ -74,3 +74,4 @@ export type ButtonEventListener = (
   panel: Panel,
   msg: MIDIData
 ) => void;
+export type DefaultPixelMaker = (x: AxisCoordinate, y: AxisCoordinate) => Pixel;

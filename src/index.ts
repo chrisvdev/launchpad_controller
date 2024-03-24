@@ -1,12 +1,10 @@
-import Panel from "./lib/panel.js";
-import {
-  RGBPixel,
-  getColor,
-  Pixel,
-  StaticPixel,
-  PulsingPixel,
-  FlashingPixel,
-} from "./lib/launchpad.js";
+import Panel from "@launchpad/panel.js";
+import type Pixel from "@launchpad/pixel.js";
+import StaticPixel from "@launchpad/static_pixel.js";
+import PulsingPixel from "@launchpad/pulsing_pixel.js";
+import FlashingPixel from "@launchpad/flashing_pixel.js";
+import RGBPixel from "@launchpad/rgb_pixel.js";
+import { getColor } from "@launchpad/utils.js";
 
 const panel = new Panel();
 
@@ -68,9 +66,28 @@ btn?.onPressSuscribe((btn, pnl) => {
   return true;
 });
 
-btn = panel.getButton(8, 8);
-btn?.setDefaultPixelMaker(
-  (x, y) => new PulsingPixel(x, y, getColor(3, 0, 0, true))
-);
+function logoHandler() {
+  const btn = panel.getButton(8, 8);
+  let tick = 0;
+  return () => {
+    tick++;
+    const rgb = tick % 3;
+    btn?.setDefaultPixelMaker(
+      (x, y) =>
+        new PulsingPixel(
+          x,
+          y,
+          getColor(
+            rgb === 0 ? 3 : 0,
+            rgb === 1 ? 3 : 0,
+            rgb === 2 ? 3 : 0,
+            true
+          )
+        )
+    );
+  };
+}
+
+setInterval(logoHandler(), 2000);
 
 panel.render();
