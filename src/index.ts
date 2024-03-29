@@ -51,7 +51,6 @@ for (let x = 0; x <= 3; x++) {
       btn.setFlashing(getColor(3, 0, 0), getColor(0, 0, 3));
       setTimeout(() => {
         btn.setDefaultPixel();
-        pnl.render();
       }, 10000);
     });
   }
@@ -59,10 +58,13 @@ for (let x = 0; x <= 3; x++) {
 let btn = panel.getButton(8, 0);
 btn?.setDefaultPixelMaker((x, y) => new StaticPixel(x, y, getColor(0, 0, 3)));
 btn?.onPressSuscribe((btn, pnl) => {
-  pnl.renderFromPixels(2000, ...getPixels(image));
-  setTimeout(() => {
-    pnl.render();
-  }, 1000);
+  pnl.addFrameToRender({ pixels: getPixels(image), TTL: 10000 });
+  return true;
+});
+btn = panel.getButton(8, 1);
+btn?.setDefaultPixelMaker((x, y) => new StaticPixel(x, y, getColor(3, 1, 0)));
+btn?.onPressSuscribe((btn, pnl) => {
+  pnl.clearFramesToRender();
   return true;
 });
 
@@ -79,7 +81,7 @@ function logoHandler() {
           y,
           getColor(
             rgb === 0 ? 3 : 0,
-            rgb === 1 ? 3 : 0,
+            rgb === 1 ? 2 : 0,
             rgb === 2 ? 3 : 0,
             true
           )
@@ -88,6 +90,4 @@ function logoHandler() {
   };
 }
 
-setInterval(logoHandler(), 2000);
-
-panel.render();
+setInterval(logoHandler(), 1000);

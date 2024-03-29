@@ -26,7 +26,6 @@ export default class Button {
     console.log(`Pressed not defined: ${this.#y + 1}${this.#x + 1}`);
     setTimeout(() => {
       btn.setDefaultPixel();
-      panel.render();
     }, 2000);
   };
   #onLeaveCB: ButtonEventListener = (btn) => {
@@ -52,28 +51,35 @@ export default class Button {
   }
   setStatic(code: PalletCode = 0) {
     this.#pixel = new StaticPixel(this.#x, this.#y, code);
+    this.renderPixel();
   }
   setFlashing(code: PalletCode = 0, code2: PalletCode = 0) {
     this.#pixel = new FlashingPixel(this.#x, this.#y, code, code2);
+    this.renderPixel();
   }
   setPulsing(code: PalletCode = 0) {
     this.#pixel = new PulsingPixel(this.#x, this.#y, code);
+    this.renderPixel();
   }
   setRGB(r: PalletPrimaryColor, g: PalletPrimaryColor, b: PalletPrimaryColor) {
     this.#pixel = new RGBPixel(this.#x, this.#y, r, g, b);
+    this.renderPixel();
   }
   setDefaultPixel() {
     const pixel = this.#defaultPixelMaker(this.#x, this.#y);
     this.#pixel = pixel;
+    this.renderPixel();
     return pixel;
   }
   setDefaultPixelMaker(maker: DefaultPixelMaker) {
     this.#defaultPixelMaker = maker;
     this.setDefaultPixel();
-    this.#panel.render();
   }
   getPixel() {
     return this.#pixel;
+  }
+  renderPixel() {
+    this.#panel.renderFromPixels(this.#pixel);
   }
   getCoordinate() {
     return {

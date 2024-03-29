@@ -6,6 +6,8 @@ import {
   CodeCoordinate,
   Coordinate,
   DefaultPixelMaker,
+  Frame,
+  Frames,
   MIDIData,
   PalletCode,
   PalletPrimaryColor,
@@ -15,7 +17,9 @@ import { makePanelButtons, getCoordinates } from "@launchpad/utils.js";
 export default class Panel {
   #launchpad;
   #buttons;
-  #timer: number = 0;
+  #onPriorityRender = false;
+  #framesToRender: Frames = [];
+  #frameTicker = 0;
   constructor() {
     this.#launchpad = new Launchpad();
     this.#buttons = makePanelButtons(this);
@@ -36,10 +40,10 @@ export default class Panel {
       const btn = this.getButton(x, y);
       if (msg.velocity > 0) {
         // @ts-ignore
-        if (btn.onPress(msg)) renderNeeded = false;
+        btn.onPress(msg);
       } else {
         // @ts-ignore
-        if (btn.onLeave(msg)) renderNeeded = false;
+        btn.onLeave(msg);
       }
     }
     if (msg._type === "cc") {
@@ -47,16 +51,15 @@ export default class Panel {
       const btn = this.getButton(x, y);
       if (msg.value > 0) {
         // @ts-ignore
-        if (btn.onPress(msg)) renderNeeded = false;
+        btn.onPress(msg);
       } else {
         // @ts-ignore
-        if (btn.onLeave(msg)) renderNeeded = false;
+        btn.onLeave(msg);
       }
     }
-    if (renderNeeded) this.render();
   }
-  render() {
-    if (!this.#timer) {
+  render(...pixels: Pixel[]) {
+    if (!pixels.length) {
       const pixels = [];
       for (let x = 0; x <= 8; x++) {
         for (let y = 0; y <= 8; y++) {
@@ -67,17 +70,40 @@ export default class Panel {
         }
       }
       this.#launchpad.render(...pixels);
+    } else this.#launchpad.render(...pixels);
+  }
+  renderFromPixels(...pixels: Pixel[]) {
+    if (!this.#onPriorityRender) this.render(...pixels);
+  }
+  addFrameToRender(frame: Frame) {
+    this.#framesToRender.push(frame);
+    if (!this.#onPriorityRender) {
+      this.#onPriorityRender = true;
+      this.#renderFrames();
     }
   }
-  renderFromPixels(time: number, ...pixels: Pixel[]) {
-    this.#launchpad.render(...pixels);
-    if (this.#timer) {
-      clearTimeout(this.#timer);
-    }
-    this.#timer = setTimeout(() => {
-      this.#timer = 0;
+  clearFramesToRender() {
+    clearTimeout(this.#frameTicker);
+    this.#frameTicker = 0;
+    this.#framesToRender = [];
+    this.#onPriorityRender = false;
+    this.render();
+  }
+  #renderFrames() {
+    if (!this.#onPriorityRender) return;
+    if (this.#framesToRender.length) {
+      const { pixels, TTL } = this.#framesToRender[0] as Frame;
+      this.render(...pixels);
+      if (TTL) {
+        this.#frameTicker = setTimeout(() => {
+          this.#framesToRender.shift();
+          this.#renderFrames();
+        }, TTL);
+      }
+    } else {
+      this.#onPriorityRender = false;
       this.render();
-    }, time);
+    }
   }
   suscribeOnPressButton(
     x: AxisCoordinate,

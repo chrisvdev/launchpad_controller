@@ -75,3 +75,8 @@ export type ButtonEventListener = (
   msg: MIDIData
 ) => void;
 export type DefaultPixelMaker = (x: AxisCoordinate, y: AxisCoordinate) => Pixel;
+export type Frame = {
+  pixels: Pixel[];
+  TTL: number;
+};
+export type Frames = Frame[];
