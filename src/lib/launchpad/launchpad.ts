@@ -1,106 +1,157 @@
-import easymidi from "easymidi";
+import Button from "@launchpad/button.js";
+import ButtonGrid from "@launchpad/button_grid.js";
 import type Pixel from "@launchpad/pixel.js";
 import type {
-  Log,
+  ButtonHost,
+  LaunchpadContext,
+  LaunchpadFrame,
   MIDIData,
-  MIDIEventListener,
-  MIDIMessageType,
-  SysexData,
 } from "@launchpad/types.js";
-import { sysexMessage } from "@launchpad/utils.js";
+import type {
+  LaunchpadConnectionOptions,
+  default as LaunchpadTransport,
+} from "@launchpad/transport.js";
+import { getCoordinates } from "@launchpad/utils.js";
 
-const INPUT_NAME = "MIDIIN2 (LPMiniMK3 MIDI)";
-const OUTPUT_NAME = "MIDIOUT2 (LPMiniMK3 MIDI)";
+/** Dispositivo Launchpad conectado, su cuadrícula y su ciclo de renderizado. */
+export default class Launchpad implements ButtonHost, LaunchpadContext {
+  #transport: LaunchpadTransport;
+  #buttons: ButtonGrid;
+  #unsubscribeTransport: (() => void) | undefined;
+  #frames: LaunchpadFrame[] = [];
+  #frameTimer: ReturnType<typeof setTimeout> | undefined;
+  #isRenderingFrames = false;
+  #disconnected = false;
 
-export default class Launchpad {
-  #input;
-  #output;
-  #log;
-  #listeners = [] as MIDIEventListener[];
-  constructor(log: Log = false) {
-    this.#input = new easymidi.Input(INPUT_NAME);
-    this.#output = new easymidi.Output(OUTPUT_NAME);
-    this.#setInProgrammerMode();
-    this.#log = log;
-    this.#activateListeners();
-    if (this.#log) {
-      this.addListener((msg) => {
-        console.log("Log:", msg);
-      });
-    }
+  constructor(transport: LaunchpadTransport) {
+    this.#transport = transport;
+    this.#buttons = new ButtonGrid((x, y) => new Button(x, y, this));
+    this.#unsubscribeTransport = this.#transport.subscribe(this.#handleMessage);
     this.render();
   }
-  #setInProgrammerMode() {
-    this.#output.send("sysex", sysexMessage([0, 32, 41, 2, 13, 14, 1]));
-  }
-  #baseListener(data: MIDIData) {
-    this.#listeners.forEach((listener) => {
-      listener(data);
-    });
-  }
-  #activateListeners() {
-    const messageTypes = [
-      "noteon",
-      "noteoff",
-      "poly aftertouch",
-      "cc",
-      "program",
-      "channel aftertouch",
-      "pitch",
-      "position",
-      "mtc",
-      "select",
-      "clock",
-      "start",
-      "continue",
-      "stop",
-      "activesense",
-      "reset",
-      "sysex",
-    ] as MIDIMessageType[];
-    messageTypes.forEach((type: MIDIMessageType) => {
-      this.#input.on(
-        // @ts-ignore
-        type,
-        (msg: MIDIData) => {
-          this.#baseListener(msg);
-        }
-      );
-    });
-  }
-  addListener(listener: MIDIEventListener) {
-    this.#listeners.push(listener);
-  }
-  render(...pixels: Pixel[]) {
-    const pixelsData = [] as SysexData;
-    pixels.forEach((pixel) => {
-      pixelsData.push(...pixel.getSysexMessage());
-    });
-    this.#output.send(
-      "sysex",
-      sysexMessage([0, 32, 41, 2, 13, 3, ...pixelsData])
+
+  /** Conecta el agregado a un Launchpad Mini MK3 físico mediante easymidi. */
+  static async connect(
+    options: LaunchpadConnectionOptions = {}
+  ): Promise<Launchpad> {
+    const { default: EasymidiLaunchpadTransport } = await import(
+      "./easymidi_launchpad_transport.js"
     );
+    return new Launchpad(new EasymidiLaunchpadTransport(options));
   }
-  getPallet() {
-    function getColorCode(code: number, h = false) {
-      const res = h ? 21 * code : 10 * code;
-      return res === 64 ? 63 : res;
+
+  /** Cuadrícula de botones indexada como `[x][y]`. */
+  get buttons(): ButtonGrid {
+    return this.#buttons;
+  }
+
+  /** Renderiza píxeles explícitos o el estado completo de la cuadrícula. */
+  render(...pixels: Pixel[]) {
+    this.#assertConnected();
+    this.#transport.render(pixels.length ? pixels : this.#buttons.getPixels());
+  }
+
+  /** Encola un frame que toma prioridad visual durante su duración. */
+  enqueueFrame(frame: LaunchpadFrame) {
+    this.#assertConnected();
+    if (!Number.isFinite(frame.duration) || frame.duration <= 0) {
+      throw new RangeError("A frame duration must be greater than zero.");
     }
 
-    function getCodeColor(num: number) {
-      const blue = num % 4;
-      const green = Math.floor(num / 4) % 4;
-      const red = Math.floor(num / 16) % 4;
-      console.log(
-        `${num}, ${getColorCode(red, num > 63)} ${getColorCode(
-          green,
-          num > 63
-        )} ${getColorCode(blue, num > 63)};`
-      );
+    this.#frames.push({
+      pixels: [...frame.pixels],
+      duration: frame.duration,
+    });
+    if (!this.#isRenderingFrames) {
+      this.#isRenderingFrames = true;
+      this.#renderNextFrame();
+    }
+  }
+
+  /** Cancela frames pendientes y restaura el estado persistente de los botones. */
+  clearFrames() {
+    this.#assertConnected();
+    if (this.#frameTimer) clearTimeout(this.#frameTimer);
+    this.#frameTimer = undefined;
+    this.#frames = [];
+    this.#isRenderingFrames = false;
+    this.render();
+  }
+
+  /** Libera listeners, temporizadores y recursos del transporte MIDI. */
+  disconnect() {
+    if (this.#disconnected) return;
+    if (this.#frameTimer) clearTimeout(this.#frameTimer);
+    this.#frameTimer = undefined;
+    this.#frames = [];
+    this.#isRenderingFrames = false;
+    this.#unsubscribeTransport?.();
+    this.#unsubscribeTransport = undefined;
+    this.#disconnected = true;
+    this.#transport.disconnect();
+  }
+
+  /** @internal */
+  renderFromButton(pixel: Pixel) {
+    if (!this.#isRenderingFrames) this.render(pixel);
+  }
+
+  /** @internal */
+  getLaunchpad(): LaunchpadContext {
+    return this;
+  }
+
+  #handleMessage = (message: MIDIData) => {
+    if (message._type === "noteon" || message._type === "noteoff") {
+      const button = this.#buttonAtCode(message.note);
+      if (!button) return;
+
+      if (message._type === "noteoff" || message.velocity === 0) {
+        button.onRelease(message);
+      } else {
+        button.onPress(message);
+      }
+      return;
     }
 
-    for (let i = 0; i < 128; i++) {
-      getCodeColor(i);
+    if (message._type === "cc") {
+      const button = this.#buttonAtCode(message.controller);
+      if (!button) return;
+
+      if (message.value === 0) {
+        button.onRelease(message);
+      } else {
+        button.onPress(message);
+      }
+    }
+  };
+
+  #buttonAtCode(code: number): Button | undefined {
+    const coordinates = getCoordinates(code);
+    return coordinates
+      ? this.#buttons.at(coordinates.x, coordinates.y)
+      : undefined;
+  }
+
+  #renderNextFrame() {
+    const frame = this.#frames[0];
+    if (!frame) {
+      this.#isRenderingFrames = false;
+      this.#frameTimer = undefined;
+      this.render();
+      return;
+    }
+
+    this.#transport.render(frame.pixels);
+    this.#frameTimer = setTimeout(() => {
+      this.#frames.shift();
+      this.#renderNextFrame();
+    }, frame.duration);
+  }
+
+  #assertConnected() {
+    if (this.#disconnected) {
+      throw new Error("Launchpad is disconnected.");
     }
   }
 }
