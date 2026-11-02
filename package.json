@@ -1,7 +1,11 @@
 {
-  "name": "launchpad",
+  "name": "@chrisvdev/launchpad-controller",
   "version": "1.0.0",
   "description": "TypeScript API for controlling a Novation Launchpad Mini MK3 over MIDI",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chrisvdev/launchpad_controller.git"
+  },
   "main": "./dist/package/index.js",
   "types": "./dist/package/index.d.ts",
   "exports": {
@@ -17,14 +21,19 @@
   "files": [
     "dist/package",
     "README.md",
-    "doc/API.md"
+    "doc/API.md",
+    "LICENSE",
+    "COPYING",
+    "COPYING.LESSER",
+    "NOTICE"
   ],
   "type": "module",
   "scripts": {
     "build": "tsc --project tsconfig.json && tsc-alias -p tsconfig.json && tsc --project tsconfig.package.json && tsc-alias -p tsconfig.package.json",
     "start": "node dist/index.js",
     "watch": "tsc && (concurrently \"tsc -w\" \"tsc-alias -w\" \"node --watch dist/index.js\")",
-    "test": "pnpm build && node --test dist/lib/launchpad/*.test.js"
+    "test": "pnpm build && node --test dist/lib/launchpad/*.test.js",
+    "prepack": "pnpm test"
   },
   "keywords": [
     "launchpad",
@@ -32,8 +41,8 @@
     "novation",
     "controller"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "ChrisVDev",
+  "license": "LGPL-3.0-or-later",
   "dependencies": {
     "easymidi": "^3.2.0"
   },

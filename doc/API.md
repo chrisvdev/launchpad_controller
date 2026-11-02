@@ -7,15 +7,14 @@ través de `easymidi`.
 ## Importación
 
 La API pública se importa desde la raíz del paquete. En este repositorio el
-nombre configurado es `launchpad`; antes de publicar, confirma su disponibilidad
-en npm o sustituye ese nombre por el que vayas a utilizar.
+nombre configurado es `@chrisvdev/launchpad-controller`.
 
 ## Inicio rápido
 
 En este repositorio, crea una instancia y registra eventos sobre un botón:
 
 ```ts
-import Launchpad from "launchpad";
+import Launchpad from "@chrisvdev/launchpad-controller";
 
 const launchpad = await Launchpad.connect({ log: true });
 const button = launchpad.buttons.at(0, 0);
@@ -135,8 +134,8 @@ debe ser finita y mayor que cero; de lo contrario, `enqueueFrame` lanza
 `Pixel` no se clonan.
 
 ```ts
-import { RGBPixel } from "launchpad";
-import type { Pixel } from "launchpad";
+import { RGBPixel } from "@chrisvdev/launchpad-controller";
+import type { Pixel } from "@chrisvdev/launchpad-controller";
 
 const image: Pixel[] = [
   new RGBPixel(0, 0, 63, 0, 0),
@@ -185,7 +184,7 @@ de 0 a 3. La fórmula es `red * 16 + green * 4 + blue`; con `h = true`, suma 64
 para seleccionar el banco alto.
 
 ```ts
-import { getColor } from "launchpad";
+import { getColor } from "@chrisvdev/launchpad-controller";
 
 const magenta = getColor(3, 0, 3); // 51
 const highBankGreen = getColor(0, 3, 0, true); // 76
@@ -288,7 +287,7 @@ Se importa explícitamente junto con sus nombres de puerto predeterminados:
 import EasymidiLaunchpadTransport, {
   DEFAULT_INPUT_NAME,
   DEFAULT_OUTPUT_NAME,
-} from "launchpad/easymidi";
+} from "@chrisvdev/launchpad-controller/easymidi";
 ```
 
 La construcción directa, `Button`, `ButtonGrid`, `ButtonFactory`,

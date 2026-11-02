@@ -60,13 +60,44 @@ reiniciar automáticamente la demo al editar el código, el script `pnpm watch`
 requiere `concurrently`, que aún no está declarado como dependencia del
 proyecto.
 
+## Publicación
+
+GitHub Actions ejecuta build y pruebas en cada push y pull request. Las
+publicaciones posteriores a npm ocurren únicamente al subir un tag `vX.Y.Z`
+que coincida con la versión de `package.json`.
+
+Para la primera publicación, inicia sesión en npm y publica desde la raíz:
+
+```bash
+npm login
+npm publish --access public
+```
+
+`prepack` compila y ejecuta las pruebas automáticamente. Cuando el paquete ya
+exista en npm, configura **Trusted Publishing** en sus ajustes con estos valores:
+proveedor GitHub Actions, organización/usuario `chrisvdev`, repositorio
+`launchpad_controller`, workflow `publish.yml` (solo el nombre del archivo) y
+permiso para publicar directamente con `npm publish`.
+
+Para cada versión posterior, incrementa `version` en `package.json`, integra el
+cambio en `main` y crea/sube el tag correspondiente. Por ejemplo, después de
+publicar `1.0.0`:
+
+```bash
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+El workflow espera una publicación pública con provenance de npm; no requiere
+guardar un token npm en GitHub Secrets.
+
 ## Uso de la API
 
 La API principal es `Launchpad.connect()`. El siguiente ejemplo cambia el LED
 de un botón y responde a su pulsación:
 
 ```ts
-import Launchpad from "launchpad";
+import Launchpad from "@chrisvdev/launchpad-controller";
 
 const launchpad = await Launchpad.connect();
 const button = launchpad.buttons.at(0, 0);
@@ -87,6 +118,12 @@ libera los recursos MIDI.
 Consulta la [referencia completa de la API](doc/API.md) para ver opciones de
 conexión, eventos MIDI, frames, tipos de píxel, utilidades y transportes
 personalizados.
+
+## Licencia
+
+Este proyecto se distribuye bajo **GNU LGPL v3.0 o cualquier versión posterior**.
+Consulta [LICENSE](LICENSE), [COPYING](COPYING) y [COPYING.LESSER](COPYING.LESSER)
+para los términos completos y [NOTICE](NOTICE) para la atribución.
 
 ### Puertos MIDI personalizados
 
@@ -119,8 +156,7 @@ Launchpad Mini MK3.
 
 ## Alcance actual
 
-El código fuente de la API vive en `src/lib/launchpad`. El paquete expone la
-API desde su entrada raíz; los ejemplos de la demo dentro de `src/index.ts`
-siguen usando alias internos de TypeScript y no forman parte del paquete.
-Antes de publicar, confirma que el nombre `launchpad` está disponible en npm o
-cámbialo por el nombre o scope que vayas a publicar.
+El código fuente de la API vive en `src/lib/launchpad`. El paquete
+`@chrisvdev/launchpad-controller` expone la API desde su entrada raíz; los
+ejemplos de la demo dentro de `src/index.ts` siguen usando alias internos de
+TypeScript y no forman parte del paquete.
