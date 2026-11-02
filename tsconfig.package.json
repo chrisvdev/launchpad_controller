@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src/lib/launchpad",
+    "outDir": "./dist/package",
+    "declaration": true
+  },
+  "include": ["src/lib/launchpad/**/*.ts"],
+  "exclude": ["src/lib/launchpad/**/*.test.ts"]
+}

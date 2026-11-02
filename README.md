@@ -66,7 +66,7 @@ La API principal es `Launchpad.connect()`. El siguiente ejemplo cambia el LED
 de un botón y responde a su pulsación:
 
 ```ts
-import Launchpad from "@launchpad/launchpad.js";
+import Launchpad from "launchpad";
 
 const launchpad = await Launchpad.connect();
 const button = launchpad.buttons.at(0, 0);
@@ -119,9 +119,8 @@ Launchpad Mini MK3.
 
 ## Alcance actual
 
-El código fuente de la API vive en `src/lib/launchpad`. El repositorio todavía
-no está publicado ni configurado como paquete npm para consumidores externos:
-no declara un mapa `exports` ni un punto de entrada público de librería. Los
-imports `@launchpad/*` de los ejemplos dependen de los alias de TypeScript de
-este proyecto. Para usarlo desde otro proyecto hay que configurar primero ese
-punto de entrada y la resolución de módulos.
+El código fuente de la API vive en `src/lib/launchpad`. El paquete expone la
+API desde su entrada raíz; los ejemplos de la demo dentro de `src/index.ts`
+siguen usando alias internos de TypeScript y no forman parte del paquete.
+Antes de publicar, confirma que el nombre `launchpad` está disponible en npm o
+cámbialo por el nombre o scope que vayas a publicar.

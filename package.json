@@ -1,16 +1,37 @@
 {
   "name": "launchpad",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "TypeScript API for controlling a Novation Launchpad Mini MK3 over MIDI",
+  "main": "./dist/package/index.js",
+  "types": "./dist/package/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/package/index.d.ts",
+      "import": "./dist/package/index.js"
+    },
+    "./easymidi": {
+      "types": "./dist/package/easymidi_launchpad_transport.d.ts",
+      "import": "./dist/package/easymidi_launchpad_transport.js"
+    }
+  },
+  "files": [
+    "dist/package",
+    "README.md",
+    "doc/API.md"
+  ],
   "type": "module",
   "scripts": {
-    "build": "tsc --project tsconfig.json && tsc-alias -p tsconfig.json",
+    "build": "tsc --project tsconfig.json && tsc-alias -p tsconfig.json && tsc --project tsconfig.package.json && tsc-alias -p tsconfig.package.json",
     "start": "node dist/index.js",
     "watch": "tsc && (concurrently \"tsc -w\" \"tsc-alias -w\" \"node --watch dist/index.js\")",
     "test": "pnpm build && node --test dist/lib/launchpad/*.test.js"
   },
-  "keywords": [],
+  "keywords": [
+    "launchpad",
+    "midi",
+    "novation",
+    "controller"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {

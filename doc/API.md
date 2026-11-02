@@ -4,22 +4,18 @@ Referencia de la API implementada en `src/lib/launchpad`. La implementación
 actual está orientada al **Novation Launchpad Mini MK3** y usa MIDI/SysEx a
 través de `easymidi`.
 
-## Estado de distribución
+## Importación
 
-Este repositorio contiene la librería junto con una aplicación de ejemplo, pero
-todavía no está configurado como paquete importable por otros proyectos:
-`package.json` no declara `exports`, y `src/index.ts` es el programa de ejemplo,
-no un punto de entrada que reexporte la API. Los ejemplos de esta guía usan el
-alias `@launchpad/*` definido en el `tsconfig.json` de este repositorio. Ese
-alias no existe automáticamente en un proyecto externo. Para usar la API desde
-otro paquete habrá que configurar/exportar una entrada pública primero.
+La API pública se importa desde la raíz del paquete. En este repositorio el
+nombre configurado es `launchpad`; antes de publicar, confirma su disponibilidad
+en npm o sustituye ese nombre por el que vayas a utilizar.
 
 ## Inicio rápido
 
 En este repositorio, crea una instancia y registra eventos sobre un botón:
 
 ```ts
-import Launchpad from "@launchpad/launchpad.js";
+import Launchpad from "launchpad";
 
 const launchpad = await Launchpad.connect({ log: true });
 const button = launchpad.buttons.at(0, 0);
@@ -139,8 +135,8 @@ debe ser finita y mayor que cero; de lo contrario, `enqueueFrame` lanza
 `Pixel` no se clonan.
 
 ```ts
-import type Pixel from "@launchpad/pixel.js";
-import RGBPixel from "@launchpad/rgb_pixel.js";
+import { RGBPixel } from "launchpad";
+import type { Pixel } from "launchpad";
 
 const image: Pixel[] = [
   new RGBPixel(0, 0, 63, 0, 0),
@@ -180,7 +176,7 @@ SysEx directamente.
 
 ## Utilidades de color y coordenadas
 
-Importación en el repositorio: `@launchpad/utils.js`.
+Las utilidades se importan desde la raíz del paquete.
 
 ### `getColor(red, green, blue, h = false)`
 
@@ -189,7 +185,7 @@ de 0 a 3. La fórmula es `red * 16 + green * 4 + blue`; con `h = true`, suma 64
 para seleccionar el banco alto.
 
 ```ts
-import { getColor } from "@launchpad/utils.js";
+import { getColor } from "launchpad";
 
 const magenta = getColor(3, 0, 3); // 51
 const highBankGreen = getColor(0, 3, 0, true); // 76
@@ -237,7 +233,7 @@ puede abrir mediante el backend MIDI de `easymidi`.
 
 ## Contratos TypeScript
 
-Los tipos se importan desde `@launchpad/types.js`. Los alias de rango son
+Los tipos se importan desde la raíz del paquete. Los alias de rango son
 documentales: están definidos como `number` y TypeScript no impone sus límites.
 
 | Tipo | Definición/propósito |
@@ -271,7 +267,7 @@ documentales: están definidos como `number` y TypeScript no impone sus límites
 ## Transporte personalizado
 
 La abstracción `LaunchpadTransport` permite integrar otro backend. Se importa
-desde `@launchpad/transport.js` y requiere:
+desde la raíz del paquete y requiere:
 
 ```ts
 interface LaunchpadTransport {
@@ -284,9 +280,16 @@ interface LaunchpadTransport {
 `new Launchpad(transport)` construye el agregado con ese transporte. El
 transporte debe estar listo para renderizar cuando se construya el `Launchpad`,
 ya que el constructor se suscribe y envía el estado inicial de la cuadrícula.
-`EasymidiLaunchpadTransport` es la implementación incluida; sus nombres MIDI
-predeterminados también están exportados como `DEFAULT_INPUT_NAME` y
-`DEFAULT_OUTPUT_NAME` desde `@launchpad/easymidi_launchpad_transport.js`.
+`EasymidiLaunchpadTransport` es la implementación incluida. Está separada de la
+entrada raíz para que importar la API normal no cargue el backend MIDI nativo.
+Se importa explícitamente junto con sus nombres de puerto predeterminados:
+
+```ts
+import EasymidiLaunchpadTransport, {
+  DEFAULT_INPUT_NAME,
+  DEFAULT_OUTPUT_NAME,
+} from "launchpad/easymidi";
+```
 
 La construcción directa, `Button`, `ButtonGrid`, `ButtonFactory`,
 `EasymidiLaunchpadTransport` y `LaunchpadTransport` son APIs de nivel bajo. En
