@@ -1,16 +1,19 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import test, { mock } from "node:test";
 import Launchpad from "@launchpad/launchpad.js";
 import StaticPixel from "@launchpad/static_pixel.js";
 import type Pixel from "@launchpad/pixel.js";
 import type {
   MIDIData,
   MIDIEventListener,
+  SysexData,
 } from "@launchpad/types.js";
 import type LaunchpadTransport from "@launchpad/transport.js";
 
 class FakeLaunchpadTransport implements LaunchpadTransport {
   readonly renders: Pixel[][] = [];
+  readonly sysex: SysexData[] = [];
+  clocks = 0;
   #listeners = new Set<MIDIEventListener>();
   disconnected = false;
 
@@ -21,6 +24,14 @@ class FakeLaunchpadTransport implements LaunchpadTransport {
 
   render(pixels: readonly Pixel[]) {
     this.renders.push([...pixels]);
+  }
+
+  sendSysex(data: SysexData) {
+    this.sysex.push(data);
+  }
+
+  sendClock() {
+    this.clocks++;
   }
 
   disconnect() {
@@ -107,4 +118,77 @@ test("enruta eventos, respeta cancelaciones y restaura el estado tras frames", (
   launchpad.disconnect();
   transport.emit(noteMessage(11, 127));
   assert.equal(presses, 1);
+});
+
+test("envía MIDI clock al tempo indicado y lo detiene", () => {
+  mock.timers.enable({ apis: ["setTimeout", "Date"] });
+  // Mocked Date only advances per tick() call, so step in 1 ms increments.
+  const advance = (ms: number) => {
+    for (let i = 0; i < ms; i++) mock.timers.tick(1);
+  };
+  try {
+    const transport = new FakeLaunchpadTransport();
+    const launchpad = new Launchpad(transport);
+
+    launchpad.setTempo(120);
+    assert.equal(launchpad.getTempo(), 120);
+    advance(1_000);
+    assert.ok(Math.abs(transport.clocks - 48) <= 1, `got ${transport.clocks} clocks`);
+
+    launchpad.setTempo(60);
+    const before = transport.clocks;
+    advance(1_000);
+    assert.ok(Math.abs(transport.clocks - before - 24) <= 1);
+
+    launchpad.setTempo(null);
+    assert.equal(launchpad.getTempo(), null);
+    const stopped = transport.clocks;
+    advance(1_000);
+    assert.equal(transport.clocks, stopped);
+
+    launchpad.setTempo(200);
+    launchpad.disconnect();
+    const disconnected = transport.clocks;
+    advance(1_000);
+    assert.equal(transport.clocks, disconnected);
+    assert.equal(launchpad.getTempo(), null);
+  } finally {
+    mock.timers.reset();
+  }
+});
+
+test("valida tempo y brillo, y envía los SysEx de brillo y sleep", () => {
+  const transport = new FakeLaunchpadTransport();
+  const launchpad = new Launchpad(transport);
+
+  assert.throws(() => launchpad.setTempo(39), RangeError);
+  assert.throws(() => launchpad.setTempo(241), RangeError);
+  assert.throws(() => launchpad.setTempo(120.5), RangeError);
+  assert.throws(() => launchpad.setBrightness(128), RangeError);
+
+  launchpad.setBrightness(64);
+  launchpad.setSleep(true);
+  launchpad.setSleep(false);
+  assert.deepEqual(transport.sysex, [
+    [8, 64],
+    [9, 0],
+    [9, 1],
+  ]);
+
+  launchpad.disconnect();
+  assert.throws(() => launchpad.setBrightness(10), Error);
+});
+
+test("falla con claridad si el transporte no soporta clock ni SysEx", () => {
+  const transport: LaunchpadTransport = {
+    subscribe: () => () => undefined,
+    render: () => undefined,
+    disconnect: () => undefined,
+  };
+  const launchpad = new Launchpad(transport);
+
+  assert.throws(() => launchpad.setTempo(120), /MIDI clock/);
+  assert.throws(() => launchpad.setBrightness(10), /SysEx/);
+  launchpad.setTempo(null);
+  launchpad.disconnect();
 });

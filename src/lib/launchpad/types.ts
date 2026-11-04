@@ -80,6 +80,10 @@ export interface LaunchpadContext {
   render(...pixels: Pixel[]): void;
   enqueueFrame(frame: LaunchpadFrame): void;
   clearFrames(): void;
+  setTempo(bpm: number | null): void;
+  getTempo(): number | null;
+  setBrightness(level: number): void;
+  setSleep(sleep: boolean): void;
   disconnect(): void;
 }
 

@@ -6,12 +6,17 @@ import type {
   LaunchpadContext,
   LaunchpadFrame,
   MIDIData,
+  SysexData,
 } from "@launchpad/types.js";
 import type {
   LaunchpadConnectionOptions,
   default as LaunchpadTransport,
 } from "@launchpad/transport.js";
 import { getCoordinates } from "@launchpad/utils.js";
+
+export const MIN_TEMPO = 40;
+export const MAX_TEMPO = 240;
+const CLOCKS_PER_BEAT = 24;
 
 /** Dispositivo Launchpad conectado, su cuadrícula y su ciclo de renderizado. */
 export default class Launchpad implements ButtonHost, LaunchpadContext {
@@ -22,6 +27,10 @@ export default class Launchpad implements ButtonHost, LaunchpadContext {
   #frameTimer: ReturnType<typeof setTimeout> | undefined;
   #isRenderingFrames = false;
   #disconnected = false;
+  #tempo: number | null = null;
+  #clockInterval = 0;
+  #nextClock = 0;
+  #clockTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(transport: LaunchpadTransport) {
     this.#transport = transport;
@@ -78,9 +87,52 @@ export default class Launchpad implements ButtonHost, LaunchpadContext {
     this.render();
   }
 
+  /**
+   * Envía MIDI clock continuo para fijar la velocidad de los LEDs pulsantes e
+   * intermitentes. Con `null` deja de enviarlo y el dispositivo vuelve a su
+   * tempo interno (120 BPM).
+   */
+  setTempo(bpm: number | null) {
+    this.#assertConnected();
+    if (bpm !== null && (!Number.isInteger(bpm) || bpm < MIN_TEMPO || bpm > MAX_TEMPO)) {
+      throw new RangeError(`Tempo must be an integer between ${MIN_TEMPO} and ${MAX_TEMPO}.`);
+    }
+    if (bpm !== null && !this.#transport.sendClock) {
+      throw new Error("The transport does not support MIDI clock.");
+    }
+
+    this.#stopClock();
+    this.#tempo = bpm;
+    if (bpm === null) return;
+
+    this.#clockInterval = 60_000 / (bpm * CLOCKS_PER_BEAT);
+    this.#nextClock = Date.now();
+    this.#tickClock();
+  }
+
+  /** Tempo enviado actualmente, o `null` si se usa el interno del dispositivo. */
+  getTempo() {
+    return this.#tempo;
+  }
+
+  /** Ajusta el brillo global de los LEDs (0–127). */
+  setBrightness(level: number) {
+    if (!Number.isInteger(level) || level < 0 || level > 127) {
+      throw new RangeError("Brightness must be an integer between 0 and 127.");
+    }
+    this.#sendSysex([8, level]);
+  }
+
+  /** Apaga (`true`) o vuelve a encender (`false`) los LEDs sin perder su estado. */
+  setSleep(sleep: boolean) {
+    this.#sendSysex([9, sleep ? 0 : 1]);
+  }
+
   /** Libera listeners, temporizadores y recursos del transporte MIDI. */
   disconnect() {
     if (this.#disconnected) return;
+    this.#stopClock();
+    this.#tempo = null;
     if (this.#frameTimer) clearTimeout(this.#frameTimer);
     this.#frameTimer = undefined;
     this.#frames = [];
@@ -147,6 +199,32 @@ export default class Launchpad implements ButtonHost, LaunchpadContext {
       this.#frames.shift();
       this.#renderNextFrame();
     }, frame.duration);
+  }
+
+  #sendSysex(data: SysexData) {
+    this.#assertConnected();
+    if (!this.#transport.sendSysex) {
+      throw new Error("The transport does not support SysEx commands.");
+    }
+    this.#transport.sendSysex(data);
+  }
+
+  // Scheduled against absolute time so timer jitter doesn't drift the tempo.
+  #tickClock = () => {
+    const now = Date.now();
+    let sent = 0;
+    while (this.#nextClock <= now && sent < CLOCKS_PER_BEAT) {
+      this.#transport.sendClock?.();
+      this.#nextClock += this.#clockInterval;
+      sent++;
+    }
+    if (this.#nextClock <= now) this.#nextClock = now + this.#clockInterval;
+    this.#clockTimer = setTimeout(this.#tickClock, this.#nextClock - now);
+  };
+
+  #stopClock() {
+    if (this.#clockTimer) clearTimeout(this.#clockTimer);
+    this.#clockTimer = undefined;
   }
 
   #assertConnected() {

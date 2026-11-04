@@ -124,7 +124,11 @@ botón. Para `noteon`/`noteoff`, la posición se obtiene de `message.note`; para
 | `render(...pixels)` | Renderiza los píxeles indicados; sin argumentos, renderiza el estado de los 81 botones. |
 | `enqueueFrame({ pixels, duration })` | Añade un frame a la cola FIFO y le da prioridad visual durante su duración. |
 | `clearFrames()` | Cancela el frame actual y los pendientes, y restaura el estado persistente de los botones. |
-| `disconnect()` | Libera listeners, temporizadores y puertos MIDI. Puede llamarse más de una vez. |
+| `setTempo(bpm \| null)` | Envía MIDI clock continuo para fijar la velocidad de pulsing/flashing. Ver [Tempo, brillo y sleep](#tempo-brillo-y-sleep). |
+| `getTempo()` | Devuelve el tempo enviado o `null`. |
+| `setBrightness(level)` | Ajusta el brillo global de los LEDs (0–127). |
+| `setSleep(sleep)` | Apaga (`true`) o enciende (`false`) los LEDs sin perder su estado. |
+| `disconnect()` | Libera listeners, temporizadores, clock y puertos MIDI. Puede llamarse más de una vez. |
 
 Un cambio en un botón renderiza solo ese píxel, salvo mientras se reproduce un
 frame: el estado del botón se actualiza, pero el frame conserva la prioridad
@@ -149,6 +153,30 @@ launchpad.clearFrames();
 Después de `disconnect()`, las operaciones `render`, `enqueueFrame` y
 `clearFrames` lanzan `Error`. La desconexión cierra los puertos; para volver a
 usar el dispositivo hay que llamar otra vez a `Launchpad.connect()`.
+
+## Tempo, brillo y sleep
+
+La velocidad de los píxeles pulsantes e intermitentes no se configura por
+píxel: el dispositivo la sincroniza con el MIDI clock que recibe (24 ticks por
+beat) y, sin clock, usa 120 BPM. `setTempo(bpm)` genera ese clock desde Node
+mientras la conexión esté abierta; `setTempo(null)` deja de enviarlo y el
+dispositivo vuelve a su tempo interno. El tempo debe ser un entero entre
+`MIN_TEMPO` (40) y `MAX_TEMPO` (240); fuera de ese rango lanza `RangeError`.
+
+```ts
+import Launchpad, { MAX_TEMPO } from "@chrisvdev/launchpad-controller";
+
+const launchpad = await Launchpad.connect();
+launchpad.setTempo(90);
+launchpad.setBrightness(64);
+launchpad.setSleep(true);
+launchpad.setSleep(false);
+```
+
+`setBrightness(level)` envía el SysEx `08 <level>` y `setSleep(sleep)` el
+SysEx `09 <0|1>` (0 apaga, 1 enciende). Estos métodos requieren que el
+transporte implemente `sendClock`/`sendSysex`; si no, lanzan `Error`. También
+lanzan `Error` después de `disconnect()`, que además detiene el clock.
 
 ## Píxeles
 
@@ -255,7 +283,8 @@ documentales: están definidos como `number` y TypeScript no impone sus límites
 | `ButtonHost` | Contrato interno que necesita un botón para solicitar render y obtener el contexto. |
 
 `LaunchpadContext` describe el subconjunto accesible a callbacks:
-`buttons`, `render(...pixels)`, `enqueueFrame(frame)`, `clearFrames()` y
+`buttons`, `render(...pixels)`, `enqueueFrame(frame)`, `clearFrames()`,
+`setTempo(bpm)`, `getTempo()`, `setBrightness(level)`, `setSleep(sleep)` y
 `disconnect()`. El constructor de `Button` recibe `(x, y, host)` y el de
 `ButtonGrid` recibe un `ButtonFactory`; ambos son constructores de bajo nivel.
 
@@ -273,8 +302,13 @@ interface LaunchpadTransport {
   subscribe(listener: MIDIEventListener): () => void;
   render(pixels: readonly Pixel[]): void;
   disconnect(): void;
+  sendSysex?(data: SysexData): void; // datos tras la cabecera 0, 32, 41, 2, 13
+  sendClock?(): void;
 }
 ```
+
+`sendSysex` y `sendClock` son opcionales; solo hacen falta para `setTempo`,
+`setBrightness` y `setSleep`.
 
 `new Launchpad(transport)` construye el agregado con ese transporte. El
 transporte debe estar listo para renderizar cuando se construya el `Launchpad`,

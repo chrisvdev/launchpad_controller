@@ -49,6 +49,16 @@ export default class EasymidiLaunchpadTransport implements LaunchpadTransport {
     this.#sendSysex([0, 32, 41, 2, 13, 3, ...pixelsData]);
   }
 
+  sendSysex(data: SysexData) {
+    this.#assertConnected();
+    this.#sendSysex([0, 32, 41, 2, 13, ...data]);
+  }
+
+  sendClock() {
+    this.#assertConnected();
+    this.#output.send("clock");
+  }
+
   disconnect() {
     if (this.#disconnected) return;
     this.#disconnected = true;

@@ -1,4 +1,9 @@
-export { default, default as Launchpad } from "./launchpad.js";
+export {
+  default,
+  default as Launchpad,
+  MAX_TEMPO,
+  MIN_TEMPO,
+} from "./launchpad.js";
 export { default as Button } from "./button.js";
 export { default as ButtonGrid, GRID_SIZE } from "./button_grid.js";
 export { default as FlashingPixel } from "./flashing_pixel.js";
