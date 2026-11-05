@@ -9,8 +9,12 @@ import { sysexMessage } from "@launchpad/utils.js";
 import type LaunchpadTransport from "@launchpad/transport.js";
 import type { LaunchpadConnectionOptions } from "@launchpad/transport.js";
 
-export const DEFAULT_INPUT_NAME = "MIDIIN2 (LPMiniMK3 MIDI)";
-export const DEFAULT_OUTPUT_NAME = "MIDIOUT2 (LPMiniMK3 MIDI)";
+export const DEFAULT_INPUT_NAME =
+  easymidi.getInputs().filter((name) => name.includes("LPMiniMK3"))[1] ??
+  "MIDIIN2 (LPMiniMK3 MIDI)";
+export const DEFAULT_OUTPUT_NAME =
+  easymidi.getOutputs().filter((name) => name.includes("LPMiniMK3"))[1] ??
+  "MIDIOUT2 (LPMiniMK3 MIDI)";
 
 /** Adaptador de easymidi para un Novation Launchpad Mini MK3. */
 export default class EasymidiLaunchpadTransport implements LaunchpadTransport {
@@ -92,11 +96,11 @@ export default class EasymidiLaunchpadTransport implements LaunchpadTransport {
     this.#input.on("clock", () => this.#emit({ _type: "clock" } as MIDIData));
     this.#input.on("start", () => this.#emit({ _type: "start" } as MIDIData));
     this.#input.on("continue", () =>
-      this.#emit({ _type: "continue" } as MIDIData)
+      this.#emit({ _type: "continue" } as MIDIData),
     );
     this.#input.on("stop", () => this.#emit({ _type: "stop" } as MIDIData));
     this.#input.on("activesense", () =>
-      this.#emit({ _type: "activesense" } as MIDIData)
+      this.#emit({ _type: "activesense" } as MIDIData),
     );
     this.#input.on("reset", () => this.#emit({ _type: "reset" } as MIDIData));
   }
